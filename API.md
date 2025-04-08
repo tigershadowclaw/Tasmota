@@ -1,4 +1,7 @@
-<img src="/tools/logo/TASMOTA_FullLogo_Vector.svg" alt="Logo" align="right" height="76"/>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./tools/logo/TASMOTA_FullLogo_Vector_White.svg">
+  <img alt="Logo" src="./tools/logo/TASMOTA_FullLogo_Vector.svg" align="right" height="76">
+</picture>
 
 # Basic API information
 
@@ -14,7 +17,7 @@ Callback Id                 | Bool | xdrv | xsns | xnrg | xlgt | Description
 ----------------------------|------|------|------|------|------|----------------------------------
 FUNC_SETTINGS_OVERRIDE      |      |  x   |      |      |      | Override start-up settings
 FUNC_PIN_STATE              |  x   |  1   |  2   |      |      | At GPIO configuration
-FUNC_I2C_INIT               |      |  x   |      |      |      | Immediatly after I2C init
+FUNC_I2C_INIT               |      |  x   |      |      |      | Immediately after I2C init
 FUNC_MODULE_INIT            |  x   |  3   |  1   |      |  2   | Init module specific parameters
 FUNC_PRE_INIT               |      |  1   |  3   |  2   |      | Once GPIO have been established
 FUNC_INIT                   |      |  1   |  3   |  2   |      | At end of initialisation

@@ -31,6 +31,19 @@ typedef struct gamma_table_t {
   uint16_t to_gamma;
 } gamma_table_t;
 
+const gamma_table_t ac_dimmer_table[] = {   // don't put in PROGMEM for performance reasons
+  {     0,      0 },
+  {    10,     64 },
+  {    50,    175 },
+  {   100,    235 },
+  {   500,    485 },
+  {   900,    704 },
+  {   950,    748 },
+  {   990,    850 },
+  {  1023,   1023 },
+  { 0xFFFF, 0xFFFF }          // fail-safe if out of range
+};
+
 const gamma_table_t gamma_table[] = {   // don't put in PROGMEM for performance reasons
   {    1,      1 },
   {    4,      1 },
@@ -46,9 +59,13 @@ const gamma_table_t gamma_table[] = {   // don't put in PROGMEM for performance 
 
 // simplified Gamma table for Fade, cheating a little at low brightness
 const gamma_table_t gamma_table_fast[] = {
-  {   384,    192 },
-  {   768,    576 },
-  {  1023,   1023 },
+  {    1,      1 },
+  {  312,     58 },
+  {  457,    106 },
+  {  626,    261 },
+  {  762,    450 },
+  {  895,    703 },
+  { 1023,   1023 },
   { 0xFFFF, 0xFFFF }          // fail-safe if out of range
 };
 
@@ -318,6 +335,11 @@ uint16_t ledGammaReverse_internal(uint16_t vg, const struct gamma_table_t *gt_pt
   }
 }
 
+// 10 bits power select to 10 bits timing based on sinus curve
+uint16_t ac_zero_cross_power(uint16_t v) {
+  return ledGamma_internal(v, ac_dimmer_table);
+}
+
 // 10 bits in, 10 bits out
 uint16_t ledGamma10_10(uint16_t v) {
   return ledGamma_internal(v, gamma_table);
@@ -343,6 +365,6 @@ uint16_t ledGammaFast(uint16_t v) {
   return ledGamma_internal(v, gamma_table_fast);
 }
 
-uint16_t leddGammaReverseFast(uint16_t vg) {
+uint16_t ledGammaReverseFast(uint16_t vg) {
   return ledGammaReverse_internal(vg, gamma_table_fast);
 }

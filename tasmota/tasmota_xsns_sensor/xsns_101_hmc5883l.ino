@@ -173,7 +173,7 @@ const char HTTP_SNS_HMC5883L[] PROGMEM =
 
 void HMC5883L_Show(uint8_t json) {
   if (json) {
-    ResponseAppend_P(PSTR(",\"HMC5883L\":{\"" D_JSON_MX "\":%d,\"" D_JSON_MY "\":%d,\"" D_JSON_MZ "\":%d,\"" D_JSON_MAGNETICFLD "\":%u,\""),
+    ResponseAppend_P(PSTR(",\"HMC5883L\":{\"" D_JSON_MX "\":%d,\"" D_JSON_MY "\":%d,\"" D_JSON_MZ "\":%d,\"" D_JSON_MAGNETICFLD "\":%u}"),
       HMC5883L->MX, HMC5883L->MY, HMC5883L->MZ, HMC5883L->magnitude);
 #ifdef USE_WEBSERVER
   } else {
@@ -224,6 +224,8 @@ bool HMC5883L_Command() {
 bool Xsns101(uint32_t function) {
   if (!I2cEnabled(XI2C_73)) { return false; }
 
+  bool result = false;
+
   if (FUNC_INIT == function) {
     HMC5883L_Init();
   }
@@ -231,7 +233,7 @@ bool Xsns101(uint32_t function) {
     switch (function) {
       case FUNC_COMMAND_SENSOR:
         if (XSNS_101 == XdrvMailbox.index) {
-          return HMC5883L_Command();  // Return true on success
+          result = HMC5883L_Command();  // Return true on success
         }
         break;
       case FUNC_JSON_APPEND:
@@ -247,7 +249,7 @@ bool Xsns101(uint32_t function) {
 #endif  // USE_WEBSERVER
     	}
   }
-  return true;
+  return result;
 }
 #endif  // USE_HMC5883L
 #endif  // USE_I2C

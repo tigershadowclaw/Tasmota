@@ -31,7 +31,7 @@ void StartMdns(void) {
     if (!Mdns.begun) {
       MDNS.end(); // close existing or MDNS.begin will fail
       Mdns.begun = (uint8_t)MDNS.begin(TasmotaGlobal.hostname);
-      AddLog(LOG_LEVEL_INFO, PSTR(D_LOG_MDNS "%s"), (Mdns.begun) ? PSTR(D_INITIALIZED) : PSTR(D_FAILED));
+      AddLog(LOG_LEVEL_INFO, PSTR(D_LOG_MDNS "%s '%s.local'"), (Mdns.begun) ? PSTR(D_INITIALIZED) : PSTR(D_FAILED), TasmotaGlobal.hostname);
     }
   }
 }
@@ -117,11 +117,19 @@ String NetworkMacAddress(void) {
   }
 #endif
 #endif
-  return WiFi.macAddress();
+  return WiFiHelper::macAddress();
 }
 
 String NetworkUniqueId(void) {
-  String unique_id = WiFi.macAddress();
+  String unique_id = WiFiHelper::macAddress();
   unique_id.replace(":", "");  // Full 12 chars MAC address as ID
   return unique_id;
+}
+
+void AddLogServerActive(const char *server) {
+  AddLog(LOG_LEVEL_INFO, PSTR("%s server active on %s%s with IP address %s"),
+    server,
+    NetworkHostname(),
+    (Mdns.begun) ? PSTR(".local") : "",
+    IPGetListeningAddressStr().c_str());
 }
