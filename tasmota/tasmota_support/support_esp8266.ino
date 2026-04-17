@@ -120,6 +120,10 @@ uint32_t ESP_getFlashChipSize(void) {
   return ESP.getFlashChipSize();
 }
 
+uint32_t ESP_getFlashChipSpeed(void) {
+  return ESP.getFlashChipSpeed();
+}
+
 uint32_t ESP_getPsramSize(void) {
   return 0;
 }
@@ -284,6 +288,28 @@ uint32_t HwRandom(void) {
   last_ccount = ccount;
   return result ^ *(volatile uint32_t *)_RAND_ADDR;
   #undef _RAND_ADDR
+}
+
+/*********************************************************************************************\
+ * Neutralize lwIP SNTP client to prevent heap drain on WiFi reconnects
+ *
+ * The ESP8266 SDK autonomously calls sntp_init() via netif_sta_status_callback
+ * on every WiFi reconnect, allocating a UDP PCB via udp_new() each time.
+ * Tasmota manages NTP entirely via WifiGetNtp() and has no use for the lwIP
+ * SNTP client. These wrappers replace both functions with NOPs, preventing
+ * UDP PCB heap allocation and lwIP timeout list corruption from unpaired
+ * sntp_stop() calls.
+ *
+ * Confirmed by disassembly of firmware.elf - single call site at netif_sta_status_callback
+ * Source: liblwip2-1460.a(sntp.o) - requires -Wl,--wrap=sntp_init,--wrap=sntp_stop
+\*********************************************************************************************/
+
+extern "C" void __wrap_sntp_init(void) {
+  // Prevent lwIP SNTP client from starting on WiFi reconnects and causing heap drain and timeout list corruption
+}
+
+extern "C" void __wrap_sntp_stop(void) {
+  // Prevent lwIP SNTP client from stopping on WiFi disconnects and causing timeout list corruption
 }
 
 #endif  // ESP8266

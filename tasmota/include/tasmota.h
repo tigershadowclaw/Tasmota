@@ -63,7 +63,7 @@ const uint8_t MAX_PWMS_LEGACY = 5;          // Max number of PWM channels in fir
   const uint8_t MAX_PWMS = 16;              // ESP32: 16 ledc PWM channels in total - TODO for now
   #elif CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3
   const uint8_t MAX_PWMS = 8;               // ESP32S2/S3: 8 ledc PWM channels in total
-  #elif CONFIG_IDF_TARGET_ESP32C2 || CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32C6
+  #elif CONFIG_IDF_TARGET_ESP32C2 || CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32C5 || CONFIG_IDF_TARGET_ESP32C6
   const uint8_t MAX_PWMS = 6;               // ESP32C2/C3/C6: 6 ledc PWM channels in total
   #else
   const uint8_t MAX_PWMS = 5;               // Unknown - revert to 5 PWM max
@@ -81,7 +81,7 @@ const uint8_t MAX_KNX_CB = 10;              // Max number of KNX Group Addresses
 const uint8_t MAX_XNRG_DRIVERS = 32;        // Max number of allowed energy drivers
 const uint8_t MAX_XDRV_DRIVERS = 128;       // Max number of allowed driver drivers
 const uint8_t MAX_XSNS_DRIVERS = 128;       // Max number of allowed sensor drivers
-const uint8_t MAX_I2C_DRIVERS = 96;         // Max number of allowed i2c drivers
+const uint8_t MAX_I2C_DRIVERS = 160;        // Max number of allowed i2c drivers
 const uint8_t MAX_SHUTTERS = 4;             // Max number of shutters
 const uint8_t MAX_SHUTTER_KEYS = 4;         // Max number of shutter keys or buttons
 const uint8_t MAX_PCF8574 = 4;              // Max number of PCF8574 devices
@@ -135,6 +135,8 @@ const uint8_t MAX_SWITCHES_TXT = 8;         // Max number of switches user text
 #ifdef ESP32
   #if CONFIG_IDF_TARGET_ESP32C2 || CONFIG_IDF_TARGET_ESP32C3
   const uint8_t MAX_ADCS = 5;               // Max number of ESP32-C3 ADC pins (ADC2 pins are unusable with Wifi enabled)
+  #elif CONFIG_IDF_TARGET_ESP32C5
+  const uint8_t MAX_ADCS = 6;               // Max number of ESP32 ADC pins (ADC2 pins are unusable with Wifi enabled)  
   #elif CONFIG_IDF_TARGET_ESP32C6
   const uint8_t MAX_ADCS = 7;               // Max number of ESP32 ADC pins (ADC2 pins are unusable with Wifi enabled)
   #else   // ESP32
@@ -384,6 +386,17 @@ enum EmulationOptions {EMUL_NONE, EMUL_WEMO, EMUL_HUE, EMUL_MAX};
 
 enum TopicOptions { CMND, STAT, TELE, nu1, RESULT_OR_CMND, RESULT_OR_STAT, RESULT_OR_TELE };
 
+// Upload type used by HandleUploadLoop() to route incoming data.
+// Value 0 is invalid/unset. Each upload endpoint must set the appropriate
+// type before HandleUploadLoop() processes the first data block.
+// UPL_TASMOTA        - OTA firmware update (/u2)
+// UPL_SETTINGS       - Settings backup restore (/u2)
+// UPL_EFM8BB1        - Sonoff RF bridge EFM8BB1 firmware
+// UPL_TASMOTACLIENT  - Tasmota client (Arduino) hex file
+// UPL_EFR32          - Zigbee EZSP (EFR32) firmware
+// UPL_SHD            - Shelly dimmer firmware
+// UPL_CCL            - CC2530 Zigbee firmware via CCLoader
+// UPL_UFSFILE        - Filesystem file upload (/ufsu)
 enum UploadTypes { UPL_TASMOTA = 1, UPL_SETTINGS, UPL_EFM8BB1, UPL_TASMOTACLIENT, UPL_EFR32, UPL_SHD, UPL_CCL, UPL_UFSFILE };
 
 enum ExecuteCommandPowerOptions { POWER_OFF, POWER_ON, POWER_TOGGLE, POWER_BLINK, POWER_BLINK_STOP, POWER_OFF_FORCE,
@@ -428,7 +441,7 @@ enum Ws2812Color { WS_RED, WS_GREEN, WS_BLUE };
 
 enum LightSubtypes { LST_NONE, LST_SINGLE, LST_COLDWARM, LST_RGB,   LST_RGBW, LST_RGBCW, LST_MAX=5 };   // Do not insert new fields
 enum LightTypes    { LT_BASIC, LT_PWM1,    LT_PWM2,      LT_PWM3,   LT_PWM4,  LT_PWM5,  LT_PWM6, LT_PWM7,
-                     LT_NU8,   LT_SERIAL1, LT_SERIAL2,   LT_RGB,    LT_RGBW,  LT_RGBWC, LT_NU14, LT_NU15 };  // Do not insert new fields
+                     LT_NU8,   LT_W,       LT_CW,        LT_RGB,    LT_RGBW,  LT_RGBWC, LT_NU14, LT_NU15 };  // Do not insert new fields
 
 enum XsnsFunctions { FUNC_SETTINGS_OVERRIDE, FUNC_SETUP_RING1, FUNC_SETUP_RING2, FUNC_PRE_INIT, FUNC_INIT, FUNC_ACTIVE, FUNC_ABOUT_TO_RESTART,
                      FUNC_LOOP, FUNC_SLEEP_LOOP, FUNC_EVERY_50_MSECOND, FUNC_EVERY_100_MSECOND, FUNC_EVERY_200_MSECOND, FUNC_EVERY_250_MSECOND, FUNC_EVERY_SECOND,
@@ -442,6 +455,7 @@ enum XsnsFunctions { FUNC_SETTINGS_OVERRIDE, FUNC_SETUP_RING1, FUNC_SETUP_RING2,
                      FUNC_WEB_GET_ARG, FUNC_WEB_ADD_HANDLER, FUNC_SET_SCHEME, FUNC_HOTPLUG_SCAN, FUNC_TIME_SYNCED,
                      FUNC_DEVICE_GROUP_ITEM,
                      FUNC_NETWORK_UP, FUNC_NETWORK_DOWN,
+                     FUNC_WEB_STATUS_LEFT, FUNC_WEB_STATUS_RIGHT,
                      FUNC_return_result = 200,  // Insert function WITHOUT return results before here. Following functions return results
                      FUNC_PIN_STATE, FUNC_MODULE_INIT, FUNC_ADD_BUTTON, FUNC_ADD_SWITCH, FUNC_BUTTON_PRESSED, FUNC_BUTTON_MULTI_PRESSED,
                      FUNC_SET_DEVICE_POWER,

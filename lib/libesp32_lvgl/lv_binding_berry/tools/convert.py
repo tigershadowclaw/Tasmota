@@ -37,6 +37,7 @@ lv_widgets = ['obj',
               # added in LVGL 9
               'spangroup', 'span',
               'scale_section', 'scale',   # 'scale_section' needs to be before 'scale' to capture more selective first
+              'arclabel',       # 9.5.0
               ]
 lv_widgets_no_class = ['span', 'scale_section']      # widgets that don't have a lv_obj class
 # extra widgets
@@ -226,6 +227,8 @@ synonym_functions = {
   "set_transform_zoom": "set_transform_scale",
 
   "scr_load_anim": "screen_load_anim",
+
+  "set_range": "set_axis_range",
 }
 
 def get_synonyms(name):
@@ -277,6 +280,7 @@ class type_mapper_class:
     "lv_anim_deleted_cb_t",
     "lv_timer_handler_resume_cb_t",
     "lv_theme_apply_cb_t",
+    "lv_screen_create_cb_t",    # new in 9.4.0
     "lv_color32_t *",
     "lv_color16_t *",
     "lv_color_filter_cb_t",
@@ -288,6 +292,10 @@ class type_mapper_class:
     "lv_color16_t",
     "uint8_t *",
     "lv_obj_t **",
+    # new in 9.5.0
+    "lv_draw_dsc_base_t *",
+    "lv_draw_blur_dsc_t *",
+    "lv_indev_key_remap_cb_t",
   ]
 
   return_types = {
@@ -383,6 +391,7 @@ class type_mapper_class:
     "int32_t *": "lv_int_arr",
     "int32_t []": "lv_int_arr",
     "uint32_t *": "lv_int_arr",
+    "lv_color_t *": "lv_color_arr",
     # "float *": "lv_float_arr",
     # layouts
     "lv_flex_align_t": "i",
@@ -430,8 +439,9 @@ class type_mapper_class:
     "lv_point_precise_t *": "lv_point_precise",
     "lv_draw_image_dsc_t *": "lv_draw_image_dsc",
     "lv_event_dsc_t *": "lv_event_dsc",
+    "lv_span_coords_t": "lv_span_coords",
 
-    # "_lv_obj_t *": "lv_obj",    // no more used in LVGL 9.2
+    "_lv_obj_t *": "lv_obj",
     "lv_obj_t *": "lv_obj",
     "lv_event_t *": "lv_event",
     "lv_color_t": "lv_color",
@@ -440,7 +450,7 @@ class type_mapper_class:
     "lv_font_t *": "lv_font",
     "lv_theme_t *": "lv_theme",
     "lv_display_t *": "lv_display",
-    # '_lv_display_t *': "lv_display",  // no more used in LVGL 9.2
+    '_lv_display_t *': "lv_display",
     "lv_indev_t *": "lv_indev",
     "lv_point_t []": "lv_point_arr",
     "lv_span_t *": "lv_span",
@@ -460,6 +470,20 @@ class type_mapper_class:
     "constchar **": "c",      # treat as a simple pointer, decoding needs to be done at Berry level
     "void * []": "c",         # treat as a simple pointer, decoding needs to be done at Berry level
     "constchar * *": "c",
+    # new in 9.3.0
+    # "lv_text_cmd_state_t *": "c",     # not used anymore in 9.4.0
+    "lv_font_info_t *": "lv_font_info",
+    "lv_switch_orientation_t": "i",
+    "lv_slider_orientation_t": "i",
+    "lv_draw_letter_dsc_t *": "lv_draw_letter_dsc",
+    # new in 9.4.0
+    "lv_image_colorkey_t *": "c",
+    "lv_arclabel_dir_t": "i",
+    "lv_arclabel_text_align_t": "i",
+    "lv_anim_timeline_t *": "lv_anim_timeline_dsc",
+    # new in 9.5.0
+    # "lv_blur_quality_t": "i",
+    "lv_arclabel_overflow_t": "i",
 
     # callbacks
     "lv_group_focus_cb_t": "lv_group_focus_cb",

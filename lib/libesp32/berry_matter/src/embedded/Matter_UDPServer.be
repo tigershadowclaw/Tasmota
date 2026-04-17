@@ -109,10 +109,37 @@ class Matter_UDPServer
   # Stops the server and remove driver
   def stop()
     if self.listening
-      self.udp_socket.stop()
+      self.udp_socket.close()
       self.listening = false
       # tasmota.remove_driver(self)
       tasmota.remove_fast_loop(self.loop_cb)
+    end
+  end
+
+  #############################################################
+  # Flush the UDP socket by closing it.
+  # Called before WiFi teardown to discard any queued packets
+  # whose pbufs reference the WiFi netif (which is about to be
+  # destroyed).  The fast_loop stays registered so that the
+  # server can be reopened without re-registering.
+  def flush_socket()
+    if self.listening && self.udp_socket != nil
+      self.udp_socket.close()
+      self.udp_socket = nil
+      self.packets_sent = []        # clear all packets awaiting ack, the remote will retry
+    end
+  end
+
+  #############################################################
+  # Reopen the UDP socket after WiFi teardown is complete.
+  # Creates a fresh socket with an empty receive buffer.
+  def reopen_socket()
+    if self.listening && self.udp_socket == nil
+      self.udp_socket = udp()
+      var ok = self.udp_socket.begin(self.addr, self.port)
+      if !ok
+        log("MTR: error reopening UDP server", 2)
+      end
     end
   end
 
@@ -161,6 +188,7 @@ class Matter_UDPServer
   #
   # Returns `true` if packet was successfully sent.
   def send(packet)
+    if self.udp_socket == nil   return false end
     var ok = self.udp_socket.send(packet.addr ? packet.addr : self.udp_socket.remote_ip, packet.port ? packet.port : self.udp_socket.remote_port, packet.raw)
     
     if ok
@@ -186,11 +214,11 @@ class Matter_UDPServer
   # If all retries expired, remove packet and log.
   def _resend_packets()
     var idx = 0
-    while idx < size(self.packets_sent)
+    while (idx < size(self.packets_sent)) && (idx < 4)              # limit to 4 packets in output queue
       var packet = self.packets_sent[idx]
       if tasmota.time_reached(packet.next_try)
         if packet.retries <= self.RETRIES
-          log("MTR: .          Resending packet id=" + str(packet.msg_id), 4)
+          log(f"MTR: .          Resending packet id={packet.msg_id} {packet.retries=}", 3)
           self.send(packet)
           packet.next_try = tasmota.millis() + self._backoff_time(packet.retries)
           packet.retries += 1

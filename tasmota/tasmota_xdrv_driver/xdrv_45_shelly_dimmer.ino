@@ -273,8 +273,8 @@ bool ShdSerialSend(const uint8_t data[] = nullptr, uint16_t len = 0)
 
     while (retries--)
     {
-        ShdSerial->write(data, len);
         ShdSerial->flush();
+        ShdSerial->write(data, len);
 
         // wait for any response
         uint32_t snd_time = millis() + SHD_ACK_TIMEOUT;
@@ -730,7 +730,7 @@ bool ShdSerialInput(void)
 bool ShdModuleSelected(void) {
   if (PinUsed(GPIO_SHELLY_DIMMER_BOOT0) && PinUsed(GPIO_SHELLY_DIMMER_RST_INV)) {
     UpdateDevicesPresent(1);
-    TasmotaGlobal.light_type = LT_SERIAL1;
+    TasmotaGlobal.light_type = LT_W;
 
     Shd.present = true;
   }

@@ -81,36 +81,41 @@
 #define opcase(opcode)      case OP_##opcode
 #define dispatch()          goto loop
 
-#define equal_rule(op, iseq) \
-    bbool res; \
-    be_assert(!var_isstatic(a)); \
-    be_assert(!var_isstatic(b)); \
-    if (var_isint(a) && var_isint(b)) { \
-        res = ibinop(op, a, b); \
-    } else if (var_isnumber(a) && var_isnumber(b)) { \
-        res = var2real(a) op var2real(b); \
-    } else if (var_isinstance(a) && !var_isnil(b)) { \
-        res = object_eqop(vm, #op, iseq, a, b); \
-    } else if (var_primetype(a) == var_primetype(b)) { /* same types */ \
-        if (var_isnil(a)) { /* nil op nil */ \
-            res = 1 op 1; \
-        } else if (var_isbool(a)) { /* bool op bool */ \
-            res = var_tobool(a) op var_tobool(b); \
-        } else if (var_isstr(a)) { /* string op string */ \
-            res = 1 op be_eqstr(a->v.s, b->v.s); \
-        } else if (var_isclass(a) || var_isfunction(a) || var_iscomptr(a)) { \
-            res = var_toobj(a) op var_toobj(b); \
-        } else { \
-            binop_error(vm, #op, a, b); \
-            res = bfalse; /* will not be executed */ \
-        } \
-    } else { /* different types */ \
-        res = 1 op 0; \
-    } \
-    return res
+#if CONFIG_IDF_TARGET_ESP32    /* when running on ESP32 in IRAM, there is a bug in early chip revision */
 
-/* when running on ESP32 in IRAM, there is a bug in early chip revision */
-#ifdef ESP32
+    #define equal_rule(op, iseq) \
+        bbool res; \
+        be_assert(!var_isstatic(a)); \
+        be_assert(!var_isstatic(b)); \
+        if (var_isint(a) && var_isint(b)) { \
+            res = ibinop(op, a, b); \
+        } else if (var_isnumber(a) && var_isnumber(b)) { \
+            union bvaldata x, y; \
+            x.i = a->v.i; \
+            if (var_isint(a)) { x.r = (breal) x.i; } \
+            y.i = b->v.i; \
+            if (var_isint(b)) { y.r = (breal) y.i; } \
+            res = x.r op y.r; \
+        } else if (var_isinstance(a) && !var_isnil(b)) { \
+            res = object_eqop(vm, #op, iseq, a, b); \
+        } else if (var_primetype(a) == var_primetype(b)) { /* same types */ \
+            if (var_isnil(a)) { /* nil op nil */ \
+                res = 1 op 1; \
+            } else if (var_isbool(a)) { /* bool op bool */ \
+                res = var_tobool(a) op var_tobool(b); \
+            } else if (var_isstr(a)) { /* string op string */ \
+                res = 1 op be_eqstr(a->v.s, b->v.s); \
+            } else if (var_isclass(a) || var_isfunction(a) || var_iscomptr(a)) { \
+                res = var_toobj(a) op var_toobj(b); \
+            } else { \
+                binop_error(vm, #op, a, b); \
+                res = bfalse; /* will not be executed */ \
+            } \
+        } else { /* different types */ \
+            res = 1 op 0; \
+        } \
+        return res
+
     #define relop_rule(op) \
         bbool res; \
         if (var_isint(a) && var_isint(b)) { \
@@ -136,7 +141,35 @@
             res = bfalse; /* will not be executed */ \
         } \
         return res
-#else  // ESP32
+#else  // CONFIG_IDF_TARGET_ESP32
+    #define equal_rule(op, iseq) \
+        bbool res; \
+        be_assert(!var_isstatic(a)); \
+        be_assert(!var_isstatic(b)); \
+        if (var_isint(a) && var_isint(b)) { \
+            res = ibinop(op, a, b); \
+        } else if (var_isnumber(a) && var_isnumber(b)) { \
+            res = var2real(a) op var2real(b); \
+        } else if (var_isinstance(a) && !var_isnil(b)) { \
+            res = object_eqop(vm, #op, iseq, a, b); \
+        } else if (var_primetype(a) == var_primetype(b)) { /* same types */ \
+            if (var_isnil(a)) { /* nil op nil */ \
+                res = 1 op 1; \
+            } else if (var_isbool(a)) { /* bool op bool */ \
+                res = var_tobool(a) op var_tobool(b); \
+            } else if (var_isstr(a)) { /* string op string */ \
+                res = 1 op be_eqstr(a->v.s, b->v.s); \
+            } else if (var_isclass(a) || var_isfunction(a) || var_iscomptr(a)) { \
+                res = var_toobj(a) op var_toobj(b); \
+            } else { \
+                binop_error(vm, #op, a, b); \
+                res = bfalse; /* will not be executed */ \
+            } \
+        } else { /* different types */ \
+            res = 1 op 0; \
+        } \
+        return res
+
     #define relop_rule(op) \
         bbool res; \
         if (var_isint(a) && var_isint(b)) { \
@@ -156,7 +189,7 @@
             res = bfalse; /* will not be executed */ \
         } \
         return res
-#endif // ESP32
+#endif // CONFIG_IDF_TARGET_ESP32
 
 #define bitwise_block(op) \
     bvalue *dst = RA(), *a = RKB(), *b = RKC(); \
@@ -463,6 +496,25 @@ static void make_range(bvm *vm, bvalue lower, bvalue upper)
     vm->top -= 3;
 }
 
+static void multiply_str(bvm *vm, bvalue *a_value, bvalue *count)
+{
+    bint n = 0;
+    bstring *result;
+    bstring *str = var_tostr(a_value);
+    
+    /* Convert count to integer */
+    if (var_isint(count)) {
+        n = var_toint(count);
+    } else if (var_isbool(count)) {
+        n = var_tobool(count) ? 1 : 0;
+    } else {
+        binop_error(vm, "*", a_value, count);
+    }
+    
+    result = be_strmul(vm, str, n);
+    var_setstr(vm->top, result);
+}
+
 static void connect_str(bvm *vm, bstring *a, bvalue *b)
 {
     bstring *s;
@@ -643,17 +695,17 @@ newframe: /* a new call frame */
             if (var_isint(a) && var_isint(b)) {
                 var_setint(dst, ibinop(+, a, b));
             } else if (var_isnumber(a) && var_isnumber(b)) {
-#ifdef ESP32    /* when running on ESP32 in IRAM, there is a bug in early chip revision */
+#if CONFIG_IDF_TARGET_ESP32    /* when running on ESP32 in IRAM, there is a bug in early chip revision */
                 union bvaldata x, y;        // TASMOTA workaround for ESP32 rev0 bug
                 x.i = a->v.i;
                 if (var_isint(a)) { x.r = (breal) x.i; }
                 y.i = b->v.i;
                 if (var_isint(b)) { y.r = (breal) y.i; }
                 var_setreal(dst, x.r + y.r);
-#else  // ESP32
+#else  // CONFIG_IDF_TARGET_ESP32
                 breal x = var2real(a), y = var2real(b);
                 var_setreal(dst, x + y);
-#endif // ESP32
+#endif // CONFIG_IDF_TARGET_ESP32
             } else if (var_isstr(a) && var_isstr(b)) { /* strcat */
                 bstring *s = be_strcat(vm, var_tostr(a), var_tostr(b));
                 reg = vm->reg;
@@ -661,6 +713,10 @@ newframe: /* a new call frame */
                 var_setstr(dst, s);
             } else if (var_isinstance(a)) {
                 ins_binop(vm, "+", ins);
+            } else if (var_iscomptr(a) && var_isint(b)) {
+                uint8_t * p = (uint8_t*) var_toobj(a);
+                p += var_toint(b);
+                var_setcomptr(dst, p);
             } else {
                 binop_error(vm, "+", a, b);
             }
@@ -684,6 +740,10 @@ newframe: /* a new call frame */
 #endif // CONFIG_IDF_TARGET_ESP32
             } else if (var_isinstance(a)) {
                 ins_binop(vm, "-", ins);
+            } else if (var_iscomptr(a) && var_isint(b)) {
+                uint8_t * p = (uint8_t*) var_toobj(a);
+                p -= var_toint(b);
+                var_setcomptr(dst, p);
             } else {
                 binop_error(vm, "-", a, b);
             }
@@ -705,6 +765,10 @@ newframe: /* a new call frame */
                 breal x = var2real(a), y = var2real(b);
                 var_setreal(dst, x * y);
 #endif // CONFIG_IDF_TARGET_ESP32
+            } else if (var_isstr(a) && (var_isint(b) || var_isbool(b))) {
+                multiply_str(vm, a, b);
+                reg = vm->reg;
+                *RA() = *vm->top; /* copy result to R(A) */
             } else if (var_isinstance(a)) {
                 ins_binop(vm, "*", ins);
             } else {
@@ -1063,6 +1127,9 @@ newframe: /* a new call frame */
                 bstring *s = be_strindex(vm, var_tostr(b), c);
                 reg = vm->reg;
                 var_setstr(RA(), s);
+            } else if (var_iscomptr(b) && var_isint(c)) {
+                uint8_t * p = var_toobj(b);
+                var_setint(RA(), p[var_toint(c)]);
             } else {
                 vm_error(vm, "type_error",
                     "value '%s' does not support subscriptable",
@@ -1083,6 +1150,9 @@ newframe: /* a new call frame */
                 be_dofunc(vm, top, 3); /* call method 'setitem' */
                 vm->top -= 4;
                 reg = vm->reg;
+            } else if (var_iscomptr(a) && var_isint(b) && var_isint(c)) {
+                uint8_t * p = var_toobj(a);
+                p[var_toint(b)] = var_toint(c);
             } else {
                 vm_error(vm, "type_error",
                     "value '%s' does not support index assignment",

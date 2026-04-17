@@ -18,10 +18,14 @@ managed_components
 .gcc-flags.json
 .cache
 .dummy
+compile_commands.json
 sdkconfig.*
+sdkconfig.defaults
+CMakeLists.txt
 data
 unpacked_fs
 unpacked_boards
+tasmota/user/*
 tasmota/user_config_override.h
 tasmota/include/local_ca_data.h
 tasmota/include/local_ca_descriptor.h
@@ -48,6 +52,9 @@ lib/libesp32/berry/berry
 .vscode/extensions.json
 *.bak
 *.code-workspace
+
+## IntelliJ ######
+.idea
 
 ## Python virtual environments for Platformio ##
 venv

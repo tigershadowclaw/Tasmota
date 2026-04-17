@@ -113,6 +113,7 @@ struct PCF8574 {
   uint32_t relay_inverted;
   uint32_t button_inverted;
   uint8_t address[MAX_PCF8574];
+  uint8_t bus[MAX_PCF8574];
   uint8_t pin_mask[MAX_PCF8574] = { 0 };
 #ifdef USE_PCF8574_MQTTINPUT
   uint8_t last_input[MAX_PCF8574] = { 0 };
@@ -137,14 +138,29 @@ uint16_t *Pcf8574_pin = nullptr;
 \*********************************************************************************************/
 
 uint8_t Pcf8574Read(uint8_t idx) {
+/*
   Wire.requestFrom(Pcf8574.address[idx], (uint8_t)1);
   return Wire.read();
+*/
+  TwoWire& myWire = I2cGetWire(Pcf8574.bus[idx]);
+  myWire.requestFrom(Pcf8574.address[idx], (uint8_t)1);
+  return myWire.read();
+}
+
+void Pcf8574WriteData(uint8_t idx, uint8_t data) {
+  TwoWire& myWire = I2cGetWire(Pcf8574.bus[idx]);
+  myWire.beginTransmission(Pcf8574.address[idx]);
+  myWire.write(data);
+  myWire.endTransmission();
 }
 
 void Pcf8574Write(uint8_t idx) {
+/*
   Wire.beginTransmission(Pcf8574.address[idx]);
   Wire.write(Pcf8574.pin_mask[idx]);
   Wire.endTransmission();
+*/
+  Pcf8574WriteData(idx, Pcf8574.pin_mask[idx]);
 }
 
 #ifdef USE_PCF8574_MODE2
@@ -170,9 +186,12 @@ void Pcf8574DigitalWrite(uint8_t pin, bool pin_value) {
   } else {
     value &= ~(1 << bit);
   }
+/*
   Wire.beginTransmission(Pcf8574.address[chip]);
   Wire.write(value);
   Wire.endTransmission();
+*/
+  Pcf8574WriteData(chip, value);
 }
 
 void Pcf8574DigitalWriteConfig(uint8_t pin, bool pin_value) {
@@ -515,12 +534,7 @@ void Pcf8574ModuleInitMode1(void) {
 #ifdef USE_WEBSERVER
 #define WEB_HANDLE_PCF8574 "pcf"
 
-const char HTTP_BTN_MENU_PCF8574[] PROGMEM =
-  "<p><form action='" WEB_HANDLE_PCF8574 "' method='get'><button>" D_CONFIGURE_PCF8574 "</button></form></p>";
-
 const char HTTP_FORM_I2C_PCF8574_1[] PROGMEM =
-  "<fieldset><legend><b>&nbsp;" D_PCF8574_PARAMETERS "&nbsp;</b></legend>"
-  "<form method='get' action='" WEB_HANDLE_PCF8574 "'>"
   "<p><label><input id='b1' name='b1' type='checkbox'%s><b>" D_INVERT_PORTS "</b></label></p><hr/>";
 
 const char HTTP_FORM_I2C_PCF8574_2[] PROGMEM =
@@ -544,6 +558,8 @@ void HandlePcf8574(void) {
 
   WSContentStart_P(D_CONFIGURE_PCF8574);
   WSContentSendStyle();
+  WSContentSend_P(HTTP_FIELDSET_LEGEND, PSTR(D_PCF8574_PARAMETERS));
+  WSContentSend_P(HTTP_FORM_GET_ACTION, PSTR(WEB_HANDLE_PCF8574));
   WSContentSend_P(HTTP_FORM_I2C_PCF8574_1, (Settings->flag3.pcf8574_ports_inverted) ? PSTR(" checked") : "");  // SetOption81 - Invert all ports on PCF8574 devices
   WSContentSend_P(HTTP_TABLE100);
   for (uint32_t idx = 0; idx < Pcf8574.max_devices; idx++) {
@@ -632,34 +648,37 @@ void Pcf8574ShowJson(void) {
 \*********************************************************************************************/
 
 void Pcf8574ModuleInit(void) {
-  uint8_t pcf8574_address = (PCF8574_ADDR1_COUNT > 0) ? PCF8574_ADDR1 : PCF8574_ADDR2;
-  while ((Pcf8574.max_devices < MAX_PCF8574) && (pcf8574_address < PCF8574_ADDR2 +PCF8574_ADDR2_COUNT)) {
+  for (uint32_t bus = 0; bus < MAX_I2C; bus++) {
+    uint8_t pcf8574_address = (PCF8574_ADDR1_COUNT > 0) ? PCF8574_ADDR1 : PCF8574_ADDR2;
+    while ((Pcf8574.max_devices < MAX_PCF8574) && (pcf8574_address < PCF8574_ADDR2 +PCF8574_ADDR2_COUNT)) {
 
-#if defined(USE_MCP230xx) && defined(USE_MCP230xx_ADDR)
-    if (USE_MCP230xx_ADDR == pcf8574_address) {
-      AddLog(LOG_LEVEL_INFO, PSTR("PCF: Address 0x%02x reserved for MCP230xx"), pcf8574_address);
-    } else {
-#endif
+  #if defined(USE_MCP230xx) && defined(USE_MCP230xx_ADDR)
+      if (USE_MCP230xx_ADDR == pcf8574_address) {
+        AddLog(LOG_LEVEL_INFO, PSTR("PCF: Address 0x%02x reserved for MCP230xx"), pcf8574_address);
+      } else {
+  #endif
 
-      if (I2cSetDevice(pcf8574_address)) {
-        Pcf8574.mode = 1;
+        if (I2cSetDevice(pcf8574_address, bus)) {
+          Pcf8574.mode = 1;
 
-        Pcf8574.max_connected_ports += 8;
-        Pcf8574.address[Pcf8574.max_devices] = pcf8574_address;
-        Pcf8574.max_devices++;
+          Pcf8574.max_connected_ports += 8;
+          Pcf8574.address[Pcf8574.max_devices] = pcf8574_address;
+          Pcf8574.bus[Pcf8574.max_devices] = bus;
+          Pcf8574.max_devices++;
 
-        char stype[12];
-        sprintf_P(stype, PSTR("PCF8574%s"), (pcf8574_address >= PCF8574_ADDR2) ? "A" : "");
-        I2cSetActiveFound(pcf8574_address, stype);
+          char stype[12];
+          sprintf_P(stype, PSTR("PCF8574%s"), (pcf8574_address >= PCF8574_ADDR2) ? "A" : "");
+          I2cSetActiveFound(pcf8574_address, stype, bus);
+        }
+
+  #if defined(USE_MCP230xx) && defined(USE_MCP230xx_ADDR)
       }
+  #endif
 
-#if defined(USE_MCP230xx) && defined(USE_MCP230xx_ADDR)
-    }
-#endif
-
-    pcf8574_address++;
-    if ((PCF8574_ADDR1 +PCF8574_ADDR1_COUNT) == pcf8574_address) {  // Support I2C addresses 0x20 to 0x26 and 0x39 to 0x3F
-      pcf8574_address = PCF8574_ADDR2;
+      pcf8574_address++;
+      if ((PCF8574_ADDR1 +PCF8574_ADDR1_COUNT) == pcf8574_address) {  // Support I2C addresses 0x20 to 0x26 and 0x39 to 0x3F
+        pcf8574_address = PCF8574_ADDR2;
+      }
     }
   }
 
@@ -710,7 +729,7 @@ bool Xdrv28(uint32_t function) {
 #endif  // USE_PCF8574_SENSOR
 #ifdef USE_WEBSERVER
       case FUNC_WEB_ADD_BUTTON:
-        WSContentSend_P(HTTP_BTN_MENU_PCF8574);
+        WSContentSend_P(HTTP_FORM_BUTTON, PSTR(WEB_HANDLE_PCF8574), PSTR(D_CONFIGURE_PCF8574));
         break;
       case FUNC_WEB_ADD_HANDLER:
         WebServer_on(PSTR("/" WEB_HANDLE_PCF8574), HandlePcf8574);

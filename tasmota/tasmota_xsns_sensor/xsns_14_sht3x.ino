@@ -154,7 +154,7 @@ bool Sht3xRead(uint32_t sensor) {
 /********************************************************************************************/
 
 void Sht3xDetect(void) {
-  for (uint32_t bus = 0; bus < 2; bus++) {
+  for (uint32_t bus = 0; bus < MAX_I2C; bus++) {
     for (uint32_t k = 0; k < SHT3X_TYPES; k++) {
       for (uint32_t i = 0; i < SHT3X_ADDRESSES; i++) {
         if (!I2cSetDevice(sht3x_addresses[i], bus)) { continue; }
@@ -185,22 +185,17 @@ void Sht3xUpdate(void) {
 
 void Sht3xShow(bool json) {
   char types[11];
-
+  bool dual_bus_use = (sht3x_sensors[0].bus != sht3x_sensors[sht3x_count -1].bus);
   for (uint32_t idx = 0; idx < sht3x_count; idx++) {
     if (sht3x_sensors[idx].valid) {
       strlcpy(types, sht3x_sensors[idx].types, sizeof(types));
       if (sht3x_count > 1) {
-        snprintf_P(types, sizeof(types), PSTR("%s%c%02X"), types, IndexSeparator(), sht3x_sensors[idx].address);  // "SHT3X-0xXX"  
-#ifdef USE_I2C_BUS2
-        if (TasmotaGlobal.i2c_enabled[1]) {
-          for (uint32_t i = 1; i < sht3x_count; i++) {
-            if (sht3x_sensors[0].bus != sht3x_sensors[i].bus) {
-              snprintf_P(types, sizeof(types), PSTR("%s%c%d"), types, IndexSeparator(), sht3x_sensors[idx].bus + 1); // "SHT3X-0xXX-X"  
-              break;
-            }
-          }
+        snprintf_P(types, sizeof(types), PSTR("%s%c%02X"), types, IndexSeparator(), sht3x_sensors[idx].address);  // "SHT3X-XX"  
+#if MAX_I2C > 1
+        if (TasmotaGlobal.i2c_enabled[1] && dual_bus_use) {  // Different busses
+          snprintf_P(types, sizeof(types), PSTR("%s%c%d"), types, IndexSeparator(), sht3x_sensors[idx].bus + 1);  // "SHT3X-XX-X"  
         }
-#endif  // USE_I2C_BUS2
+#endif  // MAX_I2C
       }
       TempHumDewShow(json, ((0 == TasmotaGlobal.tele_period) && (0 == idx)), types, sht3x_sensors[idx].temp, sht3x_sensors[idx].humi);
     }
